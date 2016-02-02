@@ -1,0 +1,67 @@
+- name: install dependencies
+  apt: name={{ item }} update_cache=yes cache_valid_time=86400
+  with_items:
+      - python-httplib2
+
+- name: check if go-carbon is already installed and get it's version
+  shell: go-carbon --version
+  register: go_carbon_installed_version
+  failed_when: no
+  changed_when: go_carbon_installed_version.rc != 0
+
+- name: Get list of releases
+  uri:
+      url: https://api.github.com/repos/lomik/go-carbon/releases
+      return_content: yes
+  register: releases
+
+- name: Get latest release or prerelease
+  set_fact:
+      go_carbon_release_json: "{{ item }}"
+  with_items: releases.json
+  when: "{{ ( go_carbon_release_json is not defined ) and ( true if go_carbon_pre_release else not item.prerelease ) }}"
+
+- name: Get deb package url
+  set_fact:
+      go_carbon_deb_json: "{{ item }}"
+  with_items: go_carbon_release_json.assets
+  when: item.content_type == "application/x-deb"
+
+- name: Decide if installation required
+  set_fact:
+      go_carbon_should_install: "{{ true if go_carbon_installed_version.changed else go_carbon_installed_version.stdout | version_compare(go_carbon_release_json.tag_name|regex_replace('^v',''), '!=') if go_carbon_latest else false }}"
+
+- name: Show latest version, isntalled version if any and deb url
+  debug: msg="latest{{':'}} '{{ go_carbon_release_json.tag_name }}'
+              {{ '' if go_carbon_installed_version.changed else ', Installed version' + ':' + \" '\" + go_carbon_installed_version.stdout + \"'\" }}
+              , deb{{':'}} {{ go_carbon_deb_json.browser_download_url }}
+              , installation required{{':'}} {{ go_carbon_should_install }} "
+  when: go_carbon_installed_version.changed or go_carbon_latest
+
+- name: Download go-carbon deb
+  get_url: url={{ go_carbon_deb_json.browser_download_url }} dest=/tmp/{{ go_carbon_deb_json.name }}
+  when: go_carbon_should_install
+
+- name: install go-carbon deb
+  apt: deb=/tmp/{{ go_carbon_deb_json.name }}
+       force={{ false if go_carbon_installed_version.changed else go_carbon_installed_version.stdout | version_compare(go_carbon_release_json.tag_name|regex_replace('^v',''), '>') }}
+  when: go_carbon_should_install
+  
+- name: remove go-carbon deb
+  file: dest=/tmp/{{ go_carbon_deb_json.name }} state=absent
+
+- name: create required files and folders
+  file: dest={{ item.dst }} state={{ item.state }}
+  with_items:
+      - { dst: /srv/graphite, state: directory }
+
+- name: put configs
+  template: dest=/{{ item }} src={{ item }}
+  with_items:
+      - etc/go-carbon/go-carbon.conf
+      - srv/graphite/storage-schemas.conf
+  notify:
+      - restart go-carbon
+
+- name: enable and start go-carbon
+  service: name=go-carbon enabled=yes state=started
