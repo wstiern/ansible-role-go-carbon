@@ -60,6 +60,7 @@
   with_items:
       - etc/go-carbon/go-carbon.conf
       - srv/graphite/storage-schemas.conf
+      - srv/graphite/storage-aggregation.conf
   notify:
       - restart go-carbon
 
