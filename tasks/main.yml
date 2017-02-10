@@ -18,14 +18,14 @@
 - name: Get latest release or prerelease
   set_fact:
       go_carbon_release_json: "{{ item }}"
-  with_items: releases.json
+  with_items: "{{ releases.json }}"
   when: "{{ ( go_carbon_release_json is not defined ) and ( true if go_carbon_pre_release else not item.prerelease ) }}"
 
 - name: Get deb package url
   set_fact:
       go_carbon_deb_json: "{{ item }}"
-  with_items: go_carbon_release_json.assets
-  when: item.content_type == "application/x-deb"
+  with_items: "{{ go_carbon_release_json.assets }}"
+  when: "{{ item.name.find('.deb') != -1 }}"
 
 - name: Decide if installation required
   set_fact:
@@ -36,11 +36,11 @@
               {{ '' if go_carbon_installed_version.changed else ', Installed version' + ':' + \" '\" + go_carbon_installed_version.stdout + \"'\" }}
               , deb{{':'}} {{ go_carbon_deb_json.browser_download_url }}
               , installation required{{':'}} {{ go_carbon_should_install }} "
-  when: go_carbon_installed_version.changed or go_carbon_latest
+  when: "{{ go_carbon_installed_version.changed or go_carbon_latest }}"
 
 - name: Download go-carbon deb
   get_url: url={{ go_carbon_deb_json.browser_download_url }} dest=/tmp/{{ go_carbon_deb_json.name }}
-  when: go_carbon_should_install
+  when: "{{ go_carbon_should_install }}"
 
 - name: install go-carbon deb
   apt: deb=/tmp/{{ go_carbon_deb_json.name }}
