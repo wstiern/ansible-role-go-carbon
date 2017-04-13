@@ -1,4 +1,4 @@
 # Allow pre-release (beta) versions
-go_carbon_pre_release: yes
+go_carbon_pre_release: no
 # Reinstall if there's a new version
-go_carbon_latest: yes
+go_carbon_latest: no
