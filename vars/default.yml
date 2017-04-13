@@ -1,0 +1,3 @@
+package_extension: "rpm"
+
+graphite_storage_prefix: "opt"

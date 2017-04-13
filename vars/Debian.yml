@@ -1,0 +1,3 @@
+package_extension: "deb"
+
+graphite_storage_prefix: "srv"
