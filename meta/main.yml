@@ -1,0 +1,23 @@
+---
+dependencies: []
+
+galaxy_info:
+  author: wstiern
+  description: go-carbon installation for Ubuntu, CentOS, and RHEL-based systems.
+  company: ""
+  license: "license (BSD, MIT)"
+  min_ansible_version: 1.8
+  platforms:
+    - name: EL
+      versions:
+      - 6
+    - name: Debian
+      versions:
+      - all
+    - name: Ubuntu
+      versions:
+      - all
+  galaxy_tags:
+    - carbon
+    - go
+    - graphite
