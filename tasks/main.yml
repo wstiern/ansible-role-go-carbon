@@ -62,7 +62,7 @@
   when:
     - go_carbon_should_install
     - (ansible_distribution == "CentOS") or (ansible_distribution == "RedHat")
-    - {{ ansible_distribution_version.split(".")[0] }} == "6"
+    - ansible_distribution_version|int == "6"
   
 - name: remove go-carbon package
   file: dest=/tmp/{{ go_carbon_package_json.name }} state=absent
