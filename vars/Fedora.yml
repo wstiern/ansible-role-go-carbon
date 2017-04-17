@@ -1,3 +1,4 @@
-package_extension: "tar.gz"
+package_extension: "rpm"
 
 graphite_storage_prefix: "opt"
+graphite_config_prefix: "etc"
