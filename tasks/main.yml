@@ -76,11 +76,43 @@
 - name: drop configs
   template: dest=/etc/go-carbon/{{ item }} src={{ item }}
   with_items:
-    - go-carbon.conf
     - storage-schemas.conf
     - storage-aggregation.conf
   notify:
     - restart go-carbon
+
+- name: drop go-carbon configs
+  template: dest=/usr/local/etc/go-carbon.conf src={{ item }}
+  with_items:
+    - go-carbon.conf
+  notify:
+    - restart go-carbon
+  when:     
+    - (ansible_distribution == "CentOS") or (ansible_distribution == "RedHat")
+
+- name: set percentage of RAM left unwritten to disk
+  sysctl:
+    name: vm.dirty_ratio
+    value: 80
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: set percentage of RAM when background writer inits
+  sysctl:
+    name: vm.dirty_background_ratio
+    value: 50
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: allow page to be left dirty for no longer than 10m
+  sysctl:
+    name: vm.dirty_expire_centisecs
+    value: 60000
+    sysctl_set: yes
+    state: present
+    reload: yes
 
 - name: enable and start go-carbon
   service: name=go-carbon enabled=yes state=started
