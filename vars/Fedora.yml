@@ -1,0 +1,3 @@
+package_extension: "tar.gz"
+
+graphite_storage_prefix: "opt"
