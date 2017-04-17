@@ -62,6 +62,7 @@
   when:
     - go_carbon_should_install
     - (ansible_distribution == "CentOS") or (ansible_distribution == "RedHat")
+    - {{ ansible_distribution_version.split(".")[0] }} == "6"
   
 - name: remove go-carbon package
   file: dest=/tmp/{{ go_carbon_package_json.name }} state=absent
@@ -70,6 +71,7 @@
   file: path={{ item.dst }} state={{ item.state }}
   with_items:
     - { dst: /opt/graphite/storage/whisper, state: directory }
+    - { dst: /etc/go-carbon/, state: directory }
 
 - name: drop configs
   template: dest=/etc/go-carbon/{{ item }} src={{ item }}
