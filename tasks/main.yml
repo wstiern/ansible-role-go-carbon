@@ -114,12 +114,5 @@
     state: present
     reload: yes
 
-- name: make iptables exception for carbonserver
-  iptables:
-    chain: INPUT
-    destination_port: 8080
-    jump: ACCEPT
-  become: yes
-
 - name: enable and start go-carbon
   service: name=go-carbon enabled=yes state=started
