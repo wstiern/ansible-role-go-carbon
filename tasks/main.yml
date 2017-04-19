@@ -117,7 +117,7 @@
 - name: make iptables exception for carbonserver
   iptables:
     chain: INPUT
-    dest_port: 8080
+    destination_port: 8080
     jump: ACCEPT
   become: yes
 
