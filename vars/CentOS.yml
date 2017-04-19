@@ -1,4 +1,4 @@
 package_extension: "rpm"
 
-graphite_storage_prefix: "opt"
-graphite_config_prefix: "etc"
+graphite_storage_directory: "/opt/graphite/storage/whisper"
+graphite_config_directory: "/etc/go-carbon"

@@ -1,3 +1,4 @@
 package_extension: "deb"
 
-graphite_storage_prefix: "srv"
+graphite_storage_directory: "/srv/graphite/storage/whisper"
+graphite_config_directory: "/srv/go-carbon"
