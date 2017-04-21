@@ -109,7 +109,7 @@
     - { dst: /var/log/go-carbon/, state: directory }
 
 - name: deploy carbon configs
-  template: dest=/etc/go-carbon/{{ item }} src={{ item }}
+  template: dest=/etc/go-carbon/{{ item }} src={{ item }}.j2
   with_items:
     - storage-schemas.conf
     - storage-aggregation.conf
@@ -117,7 +117,7 @@
     - restart go-carbon
 
 - name: deploy go-carbon configs
-  template: dest=/usr/local/etc/go-carbon.conf src={{ item }}
+  template: dest=/usr/local/etc/{{ item }} src={{ item }}.j2
   with_items:
     - go-carbon.conf
   notify:
@@ -150,9 +150,9 @@
     reload: yes
 
 - name: deploy systemd service unit file
-  template: dest=/etc/systemd/system/go-carbon.service src={{ item }}
+  template: dest=/etc/systemd/system/{{ item }} src={{ item }}.j2
   with_items:
-    - go-carbon.service.j2
+    - go-carbon.service
   notify:
     - restart go-carbon
   when:     
