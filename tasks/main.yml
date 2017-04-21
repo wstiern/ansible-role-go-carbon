@@ -5,13 +5,30 @@
     - '{{ ansible_os_family }}.yml'
     - default.yml
 
+- name: install go-repo
+  yum_repository:
+    name: go-repo
+    description: go-repo - CentOS
+    baseurl: https://mirror.go-repo.io/centos/$releasever/$basearch/
+    gpgcheck: yes
+    enabled: yes
+  when:
+    - (ansible_distribution == "CentOS") or (ansible_distribution == "RedHat")
+
 - name: install dependencies
   package: name={{ item }}
   with_items:
     - python-httplib2
+    - git
+    - golang
+    - jq
+    - wget
+    - nc
+  when:
+    - (ansible_distribution == "CentOS") or (ansible_distribution == "RedHat")
 
 - name: check if go-carbon is already installed and get it's version
-  shell: go-carbon --version
+  shell: PATH=$PATH:/usr/local/bin; go-carbon --version
   register: go_carbon_installed_version
   failed_when: no
   changed_when: go_carbon_installed_version.rc != 0
@@ -26,13 +43,16 @@
   set_fact:
     go_carbon_release_json: "{{ item }}"
   with_items: "{{ releases.json }}"
-  when: "{{ ( go_carbon_release_json is not defined ) and ( true if go_carbon_pre_release else not item.prerelease ) }}"
+  when:
+    - "{{ ( go_carbon_release_json is not defined ) and ( true if go_carbon_pre_release else not item.prerelease ) }}"
 
 - name: Get package url
   set_fact:
     go_carbon_package_json: "{{ item }}"
   with_items: "{{ go_carbon_release_json.assets }}"
-  when: "'{{ package_extension }}' in item.name"
+  register: go-carbon_package_download
+  when:
+    - "'{{ package_extension }}' in item.name"
 
 - name: Decide if installation required
   set_fact:
@@ -49,30 +69,46 @@
 - name: Download go-carbon package
   get_url: url={{ go_carbon_package_json.browser_download_url }} dest=/tmp/{{ go_carbon_package_json.name }}
   when:
-    - "{{ go_carbon_should_install }}"
+    - go_carbon_should_install
+    - package_extension != 'src'
 
 - name: install go-carbon deb
   apt: deb=/tmp/{{ go_carbon_package_json.name }} force={{ false if go_carbon_installed_version.changed else go_carbon_installed_version.stdout | version_compare(go_carbon_release_json.tag_name|regex_replace('^v',''), '>') }}
   when:
     - go_carbon_should_install
+    - package_extension != 'src'
     - (ansible_distribution == "Ubuntu") or (ansible_distribution == "Debian")
   
 - name: install go-carbon rpm
   yum: name=/tmp/{{ go_carbon_package_json.name }}
   when:
     - go_carbon_should_install
+    - package_extension != 'src'
     - (ansible_distribution == "CentOS") or (ansible_distribution == "RedHat")
-    - ansible_distribution_version|int == "6"
+    - ansible_distribution_major_version == "6"
+
+- name: install go-carbon from source
+  command: "GOPATH=/tmp go get github.com/lomik/go-carbon && GOPATH=/tmp go build github.com/lomik/go-carbon && mv /tmp/go-carbon /usr/local/bin/"
+  args:
+    creates: /usr/local/bin/go-carbon
+  when:
+    - go_carbon_should_install
+    - (ansible_distribution == "CentOS") or (ansible_distribution == "RedHat")
+    - ansible_distribution_major_version == "7"
+    - package_extension == 'src'
   
 - name: remove go-carbon package
   file: dest=/tmp/{{ go_carbon_package_json.name }} state=absent
+  when:
+    - go_carbon_package_json is defined
 
 - name: create required files and folders
   file: path={{ item.dst }} state={{ item.state }}
   with_items:
     - { dst: /etc/go-carbon/, state: directory }
+    - { dst: /var/log/go-carbon/, state: directory }
 
-- name: drop configs
+- name: deploy carbon configs
   template: dest=/etc/go-carbon/{{ item }} src={{ item }}
   with_items:
     - storage-schemas.conf
@@ -80,7 +116,7 @@
   notify:
     - restart go-carbon
 
-- name: drop go-carbon configs
+- name: deploy go-carbon configs
   template: dest=/usr/local/etc/go-carbon.conf src={{ item }}
   with_items:
     - go-carbon.conf
@@ -112,6 +148,16 @@
     sysctl_set: yes
     state: present
     reload: yes
+
+- name: deploy systemd service unit file
+  template: dest=/etc/systemd/system/go-carbon.service src={{ item }}
+  with_items:
+    - go-carbon.service.j2
+  notify:
+    - restart go-carbon
+  when:     
+    - (ansible_distribution == "CentOS") or (ansible_distribution == "RedHat")
+    - ansible_distribution_major_version == "7"
 
 - name: enable and start go-carbon
   service: name=go-carbon enabled=yes state=started
