@@ -1,0 +1,18 @@
+[Unit]
+Description=go-carbon
+Documentation=https://github.com/lomik/go-carbon
+
+[Service]
+Type=forking
+PIDFile=/var/run/go-carbon.pid
+Environment=Staging
+ExecStart=/usr/local/bin/go-carbon -config /usr/local/etc/go-carbon.conf -pidfile /var/run/go-carbon.pid -daemon
+ExecStop=pkill -9 go-carbon
+
+ExecReload=pkill -2 go-carbon
+Restart=always
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
