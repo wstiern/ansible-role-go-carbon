@@ -1,7 +1,8 @@
-[carbon]
-pattern = ^carbon\.
-retentions = 10s:15m,1m:3h
+{% for schema, config in carbon_storage_schemas.items() %}
 
-[default_1min_for_1day]
-pattern = .*
-retentions = 10s:15m,1m:3h,5m:90d
+[{{ schema }}]
+{% for key, val in config.items()|sort %}
+{{ key }} = {{ val }}
+{% endfor %}
+
+{% endfor %}
