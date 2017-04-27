@@ -5,10 +5,13 @@
     - '{{ ansible_os_family }}.yml'
     - default.yml
 
+- name: check if go-repo is installed already
+  stat: path=/etc/yum.repos.d/go-repo.repo
+  register: repo_installed
+
 - name: install go-repo gpg key
-  rpm_key:
-    state: present
-    key: https://mirror.go-repo.io/centos/RPM-GPG-KEY-GO-REPO
+  command: rpm --import https://mirror.go-repo.io/centos/RPM-GPG-KEY-GO-REPO
+  when: repo_installed.stat.isreg is defined and repo_installed.stat.isreg
 
 - name: install go-repo
   yum_repository:
@@ -38,75 +41,16 @@
   failed_when: no
   changed_when: go_carbon_installed_version.rc != 0
 
-- name: Get list of releases
-  uri:
-    url: https://api.github.com/repos/lomik/go-carbon/releases
-    return_content: yes
-  register: releases
-
-- name: Get latest release or prerelease
-  set_fact:
-    go_carbon_release_json: "{{ item }}"
-  with_items: "{{ releases.json }}"
-  when:
-    - "{{ ( go_carbon_release_json is not defined ) and ( true if go_carbon_pre_release else not item.prerelease ) }}"
-
-- name: Get package url
-  set_fact:
-    go_carbon_package_json: "{{ item }}"
-  with_items: "{{ go_carbon_release_json.assets }}"
-  register: go-carbon_package_download
-  when:
-    - "'{{ package_extension }}' in item.name"
-
-- name: Decide if installation required
-  set_fact:
-    go_carbon_should_install: "{{ true if go_carbon_installed_version.changed else go_carbon_installed_version.stdout | version_compare(go_carbon_release_json.tag_name|regex_replace('^v',''), '!=') if go_carbon_latest else false }}"
-
-- name: Show latest version, installed version if any and url
-  debug: msg="latest{{':'}} '{{ go_carbon_release_json.tag_name }}'
-              {{ '' if go_carbon_installed_version.changed else ', Installed version' + ':' + \" '\" + go_carbon_installed_version.stdout + \"'\" }}
-              , {{ package_extension }}{{':'}} {{ go_carbon_package_json.browser_download_url }}
-              , installation required{{':'}} {{ go_carbon_should_install }} "
-  when:
-    - "{{ go_carbon_installed_version.changed or go_carbon_latest }}"
-
-- name: Download go-carbon package
-  get_url: url={{ go_carbon_package_json.browser_download_url }} dest=/tmp/{{ go_carbon_package_json.name }}
-  when:
-    - go_carbon_should_install
-    - package_extension != 'src'
-
-- name: install go-carbon deb
-  apt: deb=/tmp/{{ go_carbon_package_json.name }} force={{ false if go_carbon_installed_version.changed else go_carbon_installed_version.stdout | version_compare(go_carbon_release_json.tag_name|regex_replace('^v',''), '>') }}
-  when:
-    - go_carbon_should_install
-    - package_extension != 'src'
-    - (ansible_distribution == "Ubuntu") or (ansible_distribution == "Debian")
-  
-- name: install go-carbon rpm
-  yum: name=/tmp/{{ go_carbon_package_json.name }}
-  when:
-    - go_carbon_should_install
-    - package_extension != 'src'
-    - (ansible_distribution == "CentOS") or (ansible_distribution == "RedHat")
-    - ansible_distribution_major_version == "6"
-
 - name: install go-carbon from source
   command: "GOPATH=/tmp go get github.com/lomik/go-carbon && GOPATH=/tmp go build github.com/lomik/go-carbon && mv /tmp/go-carbon /usr/local/bin/"
   args:
     creates: /usr/local/bin/go-carbon
+    chdir: /tmp
   when:
-    - go_carbon_should_install
     - (ansible_distribution == "CentOS") or (ansible_distribution == "RedHat")
     - ansible_distribution_major_version == "7"
     - package_extension == 'src'
   
-- name: remove go-carbon package
-  file: dest=/tmp/{{ go_carbon_package_json.name }} state=absent
-  when:
-    - go_carbon_package_json is defined
-
 - name: create required files and folders
   file: path={{ item.dst }} state={{ item.state }}
   with_items:
